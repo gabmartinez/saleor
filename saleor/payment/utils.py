@@ -10,6 +10,7 @@ from django.db import transaction
 from ..account.models import User
 from ..checkout.models import Checkout
 from ..order.models import Order
+from ..plugins.manager import get_plugins_manager
 from . import ChargeStatus, GatewayError, PaymentError, TransactionKind
 from .error_codes import PaymentErrorCode
 from .interface import AddressData, GatewayResponse, PaymentData
@@ -253,20 +254,29 @@ def prepare_key_for_gateway_customer_id(gateway_name: str) -> str:
     return (gateway_name.strip().upper()) + ".customer_id"
 
 
-def update_card_details(payment, gateway_response):
-    payment.cc_brand = gateway_response.card_info.brand or ""
-    payment.cc_last_digits = gateway_response.card_info.last_4
-    payment.cc_exp_year = gateway_response.card_info.exp_year
-    payment.cc_exp_month = gateway_response.card_info.exp_month
-    payment.save(
-        update_fields=[
-            "cc_brand",
-            "cc_last_digits",
-            "cc_exp_year",
-            "cc_exp_month",
-            "modified",
-        ]
-    )
+def update_payment_method_details(
+    payment: "Payment", gateway_response: "GatewayResponse"
+):
+    changed_fields = []
+    if not gateway_response.payment_method_info:
+        return
+    if gateway_response.payment_method_info.brand:
+        payment.cc_brand = gateway_response.payment_method_info.brand
+        changed_fields.append("cc_brand")
+    if gateway_response.payment_method_info.last_4:
+        payment.cc_last_digits = gateway_response.payment_method_info.last_4
+        changed_fields.append("cc_last_digits")
+    if gateway_response.payment_method_info.exp_year:
+        payment.cc_exp_year = gateway_response.payment_method_info.exp_year
+        changed_fields.append("cc_exp_year")
+    if gateway_response.payment_method_info.exp_month:
+        payment.cc_exp_month = gateway_response.payment_method_info.exp_month
+        changed_fields.append("cc_exp_month")
+    if gateway_response.payment_method_info.type:
+        payment.payment_method_type = gateway_response.payment_method_info.type
+        changed_fields.append("payment_method_type")
+    if changed_fields:
+        payment.save(update_fields=changed_fields)
 
 
 def get_payment_token(payment: Payment):
@@ -276,3 +286,9 @@ def get_payment_token(payment: Payment):
     if auth_transaction is None:
         raise PaymentError("Cannot process unauthorized transaction")
     return auth_transaction.token
+
+
+def is_currency_supported(currency: str, gateway_id: str):
+    """Return true if the given gateway supports given currency."""
+    available_gateways = get_plugins_manager().list_payment_gateways(currency=currency)
+    return any([gateway.id == gateway_id for gateway in available_gateways])

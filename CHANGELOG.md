@@ -4,20 +4,39 @@ All notable, unreleased changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Features
+
+- Merge `manage_webhooks` permission with `manage_apps` - #5556 by @korycins
+- Add App support - #5767 by @korycins
+- Add webhook handler to BasePlugin and PluginManager - #5884 by @korycins
+- Invoices backend - #5732 by @tomaszszymanski129
+
 ### Breaking Changes
 
 - Refactor JWT support - These changes could require a handling JWT token in the storefront. Storefront needs to handle a case when the backend returns the exception about the invalid token. - #5734, #5816 by @korycins
 - New logging setup will now output JSON logs in production mode for ease of feeding them into log collection systems like Logstash or CloudWatch Logs - #5699 by @patrys
+- Deprecate `WebhookEventType.CHECKOUT_QUANTITY_CHANGED`. It will be removed in Saleor 3.0 - #5837 by @korycins
+- Add dummy credit card payment - #5822 by @IKarbowiak
+- Anonymize and update order and payment fields; drop PaymentSecureConfirm mutation, drop Payment type fields: extraData, billingAddress, billingEmail, drop gatewayResponse from Transaction type - #5926 by @IKarbowiak
+- Switch the HTTP stack from WSGI to ASGI based on Uvicorn - #5960 by @patrys
 
 ### Fixes
 
+- Fix payment fields in order paylaod for webhooks - #5862 by @korycins
 - Add our implementation of UUID scalar - #5646 by @koradon
 - Add AppTokenVerify mutation - #5716 by @korycins
 - Fix specific product voucher in draft orders - #5727 by @fowczarek
+- Add products csv export - #5255 by @IKarbowiak
 - Explicit country assignment in default shipping zones - #5736 by @maarcingebala
 - Drop `json_content` field from the `Menu` model - #5761 by @maarcingebala
 - Strip warehouse name in mutations - #5766 by @koradon
 - Add missing OrderEvents during checkout flow - #5684 by @koradon
+- Update google merchant to get tax rate based by plugin manager - #5823 by @gabmartinez
+- Allow unicode in slug fields - #5877 by @IKarbowiak
+
+## 2.10.2
+
+- Add command to change currencies in the database - #5906 by @d-wysocki
 
 ## 2.10.1
 

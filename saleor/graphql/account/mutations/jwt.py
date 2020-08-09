@@ -1,12 +1,17 @@
+from typing import Optional
+
 import graphene
 import jwt
-from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
-from django.middleware.csrf import _compare_salted_tokens, _get_new_csrf_token
+from django.middleware.csrf import (  # type: ignore
+    _compare_masked_tokens,
+    _get_new_csrf_token,
+)
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from graphene.types.generic import GenericScalar
 
+from ....account import models
 from ....account.error_codes import AccountErrorCode
 from ....core.jwt import (
     JWT_REFRESH_TOKEN_COOKIE_NAME,
@@ -73,10 +78,15 @@ class CreateToken(BaseMutation):
     user = graphene.Field(User, description="A user instance.")
 
     @classmethod
-    def get_user(cls, info, data):
-        user = authenticate(
-            request=info.context, username=data["email"], password=data["password"],
-        )
+    def _retrieve_user_from_credentials(cls, email, password) -> Optional[models.User]:
+        user = models.User.objects.filter(email=email, is_active=True).first()
+        if user and user.check_password(password):
+            return user
+        return None
+
+    @classmethod
+    def get_user(cls, _info, data):
+        user = cls._retrieve_user_from_credentials(data["email"], data["password"])
         if not user:
             raise ValidationError(
                 {
@@ -173,7 +183,7 @@ class RefreshToken(BaseMutation):
 
     @classmethod
     def clean_csrf_token(cls, csrf_token, payload):
-        is_valid = _compare_salted_tokens(csrf_token, payload["csrfToken"])
+        is_valid = _compare_masked_tokens(csrf_token, payload["csrfToken"])
         if not is_valid:
             raise ValidationError(
                 {
